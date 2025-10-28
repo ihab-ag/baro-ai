@@ -1,0 +1,41 @@
+{
+  "name": "baro-ai",
+  "version": "1.0.0",
+  "description": "WhatsApp AI Accounting Agent with LangChain",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "node dist/test.js",
+    "test:dev": "tsx src/test.ts",
+    "interactive": "tsx src/interactive.ts",
+    "chat": "tsx src/interactive.ts",
+    "telegram": "tsx src/telegram/bot.ts"
+  },
+  "keywords": [
+    "langchain",
+    "ai",
+    "whatsapp",
+    "accounting"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@langchain/core": "^1.0.0",
+    "@langchain/groq": "^1.0.0",
+    "@langchain/openai": "^1.0.0",
+    "@supabase/supabase-js": "^2.76.1",
+    "dotenv": "^16.4.5",
+    "langchain": "^1.0.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.70.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/node-telegram-bot-api": "^0.64.12",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
