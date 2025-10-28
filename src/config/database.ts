@@ -28,3 +28,14 @@ export interface TransactionRow {
   created_at?: string;
 }
 
+export interface BudgetRow {
+  id?: number;
+  user_id: string; // Telegram user ID
+  year: number;
+  month: number; // 0-11 (JavaScript month format)
+  category?: string | null; // null for overall budget, or category name
+  amount: number;
+  type: 'income' | 'expense';
+  created_at?: string;
+}
+

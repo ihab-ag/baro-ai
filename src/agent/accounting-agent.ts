@@ -24,6 +24,7 @@ export class AccountingAgent {
         model: settings.groqModel,
         temperature: 0.3,
         apiKey: settings.groqApiKey,
+        streaming: false
       });
     } else {
       console.log('🚀 Using OpenAI for LLM');
@@ -31,6 +32,7 @@ export class AccountingAgent {
         model: settings.openaiModel,
         temperature: 0.3,
         openAIApiKey: settings.openaiApiKey,
+        streaming: false
       });
     }
     

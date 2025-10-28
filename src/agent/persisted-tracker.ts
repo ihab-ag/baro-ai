@@ -3,7 +3,7 @@
  */
 
 import { Transaction, type TransactionData } from './expense-tracker.js';
-import { supabase, type TransactionRow } from '../config/database.js';
+import { supabase, type TransactionRow, type BudgetRow } from '../config/database.js';
 
 interface TransactionWithId {
   transaction: Transaction;
@@ -179,6 +179,59 @@ export class PersistedExpenseTracker {
     }
   }
   
+  /**
+   * Clear all transactions for a specific month and year
+   * Returns the number of transactions deleted
+   */
+  async clearMonth(year: number, month: number): Promise<number> {
+    // Get transactions for this month
+    const monthTransactions = this.getTransactionsByMonth(year, month);
+    const count = monthTransactions.length;
+    
+    if (count === 0) {
+      return 0;
+    }
+    
+    try {
+      // Calculate balance adjustment
+      let balanceAdjustment = 0;
+      monthTransactions.forEach(item => {
+        const t = item.transaction;
+        if (t.type === 'income') {
+          balanceAdjustment -= t.amount;
+        } else {
+          balanceAdjustment += t.amount;
+        }
+      });
+      
+      // Delete from local array
+      const idsToDelete = new Set(monthTransactions.map(item => item.id));
+      this.transactions = this.transactions.filter(item => !idsToDelete.has(item.id));
+      this.balance += balanceAdjustment;
+      
+      // Delete from Supabase
+      // Filter by date range for the month
+      const startDate = new Date(year, month, 1).toISOString();
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
+      
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', this.userId)
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate);
+      
+      if (error) {
+        console.error('Error clearing month transactions from Supabase:', error);
+      }
+      
+      return count;
+    } catch (error) {
+      console.error('Failed to clear month transactions:', error);
+      return 0;
+    }
+  }
+  
   getTransaction(id: number): TransactionWithId | undefined {
     return this.transactions.find(item => item.id === id);
   }
@@ -197,6 +250,48 @@ export class PersistedExpenseTracker {
     return this.transactions.filter(item => item.transaction.category === category);
   }
   
+  getAllCategories(): string[] {
+    const categories = new Set<string>();
+    this.transactions.forEach(item => {
+      if (item.transaction.category) {
+        categories.add(item.transaction.category);
+      }
+    });
+    return Array.from(categories).sort();
+  }
+  
+  getCategoryStatsForMonth(year: number, month: number): Array<{category: string, income: number, expense: number, net: number}> {
+    const monthTransactions = this.getTransactionsByMonth(year, month);
+    const categoryMap = new Map<string, {income: number, expense: number}>();
+    
+    monthTransactions.forEach(item => {
+      const t = item.transaction;
+      const cat = t.category || 'Uncategorized';
+      
+      if (!categoryMap.has(cat)) {
+        categoryMap.set(cat, { income: 0, expense: 0 });
+      }
+      
+      const stats = categoryMap.get(cat)!;
+      if (t.type === 'income') {
+        stats.income += t.amount;
+      } else {
+        stats.expense += t.amount;
+      }
+    });
+    
+    return Array.from(categoryMap.entries()).map(([category, stats]) => ({
+      category,
+      income: stats.income,
+      expense: stats.expense,
+      net: stats.income - stats.expense
+    })).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+  }
+  
+  /**
+   * Get transactions for a specific month and year
+   * Both year and month must match exactly
+   */
   getTransactionsByMonth(year: number, month: number): TransactionWithId[] {
     return this.transactions.filter(item => {
       const date = item.transaction.timestamp;
@@ -204,6 +299,10 @@ export class PersistedExpenseTracker {
     });
   }
   
+  /**
+   * Get all unique months (year + month combinations) with transactions
+   * Sorted by most recent first
+   */
   getAllMonths(): Array<{year: number, month: number, name: string}> {
     const months = new Set<string>();
     const dateToKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
@@ -222,6 +321,237 @@ export class PersistedExpenseTracker {
         if (a.year !== b.year) return b.year - a.year;
         return b.month - a.month;
       });
+  }
+  
+  /**
+   * Export all transactions as CSV, sorted by date (oldest first)
+   */
+  exportToCSV(): string {
+    // Sort transactions by date (oldest first)
+    const sortedTransactions = [...this.transactions]
+      .sort((a, b) => a.transaction.timestamp.getTime() - b.transaction.timestamp.getTime());
+    
+    // CSV header
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Description', 'Category'];
+    
+    // CSV rows
+    const rows = sortedTransactions.map(item => {
+      const t = item.transaction;
+      return [
+        item.id.toString(),
+        t.timestamp.toISOString().split('T')[0], // Date only (YYYY-MM-DD)
+        t.type,
+        t.amount.toFixed(2),
+        t.description.replace(/"/g, '""'), // Escape double quotes in description
+        t.category || ''
+      ].map(field => `"${field}"`).join(',');
+    });
+    
+    return [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
+  }
+  
+  exportMonthToCSV(year: number, month: number): string {
+    const filtered = this.transactions
+      .filter(item => item.transaction.timestamp.getFullYear() === year && item.transaction.timestamp.getMonth() === month)
+      .sort((a, b) => a.transaction.timestamp.getTime() - b.transaction.timestamp.getTime());
+    if (filtered.length === 0) return '';
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Description', 'Category'];
+    const rows = filtered.map(item => {
+      const t = item.transaction;
+      return [
+        item.id.toString(),
+        t.timestamp.toISOString().split('T')[0],
+        t.type,
+        t.amount.toFixed(2),
+        t.description.replace(/"/g, '""'),
+        t.category || ''
+      ].map(field => `"${field}"`).join(',');
+    });
+    return [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
+  }
+  
+  // Budget management methods
+  
+  async createBudget(amount: number, year: number, month: number, category?: string, type: 'income' | 'expense' = 'expense'): Promise<number> {
+    try {
+      // First, delete any existing budget for the same parameters (to allow updates)
+      await this.deleteBudgetsByCriteria(year, month, category, type);
+      
+      const row: BudgetRow = {
+        user_id: this.userId,
+        year,
+        month,
+        category: category || null,
+        amount,
+        type
+      };
+      
+      const { data, error } = await supabase
+        .from('budgets')
+        .insert([row])
+        .select('id')
+        .single();
+      
+      if (error) {
+        console.error('Error creating budget:', error);
+        throw error;
+      }
+      
+      return data.id;
+    } catch (error) {
+      console.error('Failed to create budget:', error);
+      throw error;
+    }
+  }
+  
+  async deleteBudgetsByCriteria(year: number, month: number, category?: string, type: 'income' | 'expense' = 'expense'): Promise<number> {
+    try {
+      let query = supabase
+        .from('budgets')
+        .delete()
+        .eq('user_id', this.userId)
+        .eq('year', year)
+        .eq('month', month)
+        .eq('type', type);
+      
+      if (category) {
+        query = query.eq('category', category);
+      } else {
+        query = query.is('category', null);
+      }
+      
+      const { error } = await query;
+      
+      if (error) {
+        console.error('Error deleting budgets by criteria:', error);
+        return 0;
+      }
+      
+      return 1;
+    } catch (error) {
+      console.error('Failed to delete budgets by criteria:', error);
+      return 0;
+    }
+  }
+  
+  /**
+   * Get budgets for a specific month and year
+   * Both year and month must match exactly
+   */
+  async getBudgets(year: number, month: number): Promise<BudgetRow[]> {
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', this.userId)
+        .eq('year', year)
+        .eq('month', month);
+      
+      if (error) {
+        console.error('Error fetching budgets:', error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('Failed to fetch budgets:', error);
+      return [];
+    }
+  }
+  
+  async getBudgetStatus(year: number, month: number): Promise<Array<{
+    category?: string,
+    budgetAmount: number,
+    spentAmount: number,
+    remaining: number,
+    percentage: number
+  }>> {
+    // Get all budgets for this month
+    const budgets = await this.getBudgets(year, month);
+    
+    // Get transactions for this month
+    const monthTransactions = this.getTransactionsByMonth(year, month);
+    
+    // Calculate spending by category
+    const spendingByCategory = new Map<string, number>();
+    let totalSpent = 0;
+    
+    monthTransactions.forEach(item => {
+      const t = item.transaction;
+      if (t.type === 'expense') {
+        const cat = t.category || 'Uncategorized';
+        spendingByCategory.set(cat, (spendingByCategory.get(cat) || 0) + t.amount);
+        totalSpent += t.amount;
+      }
+    });
+    
+    // Build status for each budget
+    const statusList: Array<{
+      category?: string,
+      budgetAmount: number,
+      spentAmount: number,
+      remaining: number,
+      percentage: number
+    }> = [];
+    
+    for (const budget of budgets) {
+      if (budget.type === 'expense') {
+        // Handle overall budget (null category) vs category-specific budgets
+        if (budget.category === null || budget.category === undefined) {
+          // Overall budget - use total spent
+          const remaining = budget.amount - totalSpent;
+          const percentage = budget.amount > 0 ? (totalSpent / budget.amount) * 100 : 0;
+          
+          statusList.push({
+            category: 'Overall Budget',
+            budgetAmount: budget.amount,
+            spentAmount: totalSpent,
+            remaining,
+            percentage
+          });
+        } else {
+          // Category-specific budget
+          const spent = spendingByCategory.get(budget.category) || 0;
+          const remaining = budget.amount - spent;
+          const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+          
+          statusList.push({
+            category: budget.category,
+            budgetAmount: budget.amount,
+            spentAmount: spent,
+            remaining,
+            percentage
+          });
+        }
+      }
+    }
+    
+    return statusList.sort((a, b) => {
+      // Sort: Overall first, then by most over-budget first
+      if (a.category === 'Overall Budget') return -1;
+      if (b.category === 'Overall Budget') return 1;
+      return Math.abs(b.remaining) - Math.abs(a.remaining);
+    });
+  }
+  
+  async deleteBudget(id: number): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', this.userId);
+      
+      if (error) {
+        console.error('Error deleting budget:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to delete budget:', error);
+      return false;
+    }
   }
 }
 

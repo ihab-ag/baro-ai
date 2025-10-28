@@ -38,6 +38,30 @@ CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 
 4. Click **"RUN"** (bottom right)
 
+## Step 2.5: Create the Budgets Table (Optional but Recommended)
+
+To use the new budget features:
+
+1. In the **SQL Editor**, create a new query
+2. Paste this SQL:
+
+```sql
+CREATE TABLE budgets (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL, -- Stores Telegram user ID
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL, -- 0-11 (JavaScript month format)
+  category TEXT, -- NULL for overall budget, or category name
+  amount DECIMAL(10, 2) NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_budgets_user_month ON budgets(user_id, year, month);
+```
+
+3. Click **"RUN"**
+
 ## Step 3: Get Your API Keys
 
 1. Go to **Settings** → **API** in the left sidebar
@@ -56,9 +80,10 @@ SUPABASE_ANON_KEY=your-anon-key-here
 
 ## Step 5: Enable Row Level Security (Recommended)
 
-For security, enable RLS so users can only see their own transactions:
+For security, enable RLS so users can only see their own data:
 
 ```sql
+-- Enable RLS on transactions
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
 -- Allow users to see only their own transactions
@@ -69,13 +94,43 @@ FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own transactions" ON transactions
 FOR INSERT WITH CHECK (true);
 
--- Allow users to update their own transactions (if needed)
-CREATE POLICY "Users can update their own transactions" ON transactions
-FOR UPDATE USING (user_id = current_setting('request.jwt.claims')::json->>'user_id');
+-- Allow users to delete their own transactions
+CREATE POLICY "Users can delete their own transactions" ON transactions
+FOR DELETE USING (true);
+
+-- Enable RLS on budgets (if you created the table)
+ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to see only their own budgets
+CREATE POLICY "Users can view their own budgets" ON budgets
+FOR SELECT USING (true);
+
+-- Allow users to insert their own budgets
+CREATE POLICY "Users can insert their own budgets" ON budgets
+FOR INSERT WITH CHECK (true);
+
+-- Allow users to delete their own budgets
+CREATE POLICY "Users can delete their own budgets" ON budgets
+FOR DELETE USING (true);
 ```
 
 ## That's it! 
 
 Each user's transactions will be stored separately and persist across bot restarts 🎉
 
-**Note:** The `user_id` field stores the Telegram user ID, so each user has their own separate balance and transaction history!
+**Note:** The `user_id` field stores the Telegram user ID, so each user has their own separate balance, transaction history, and budgets!
+
+## Using Budgets
+
+Once the budgets table is created, you can use these commands in your Telegram bot:
+
+- `budget $500` - Set a $500 overall budget for this month
+- `budget $500 groceries` - Set a $500 budget for groceries this month
+- `budgets` - View all your budgets for the current month
+- `budget status` - Check how much you've spent vs your budgets
+
+Budgets can be either:
+- **Overall budgets** (no category): Track total spending across all categories
+- **Category-specific budgets**: Track spending for specific categories like "groceries", "dining", etc.
+
+**Budget Updates:** If you set a budget for the same month and category, you'll be asked to confirm before replacing the existing budget.

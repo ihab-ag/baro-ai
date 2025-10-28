@@ -100,4 +100,36 @@ export class ExpenseTracker {
     this.balance = data.balance;
     this.transactions = data.transactions.map(t => Transaction.fromJSON(t));
   }
+  
+  // CSV Exports
+  exportToCSV(): string {
+    const sorted = [...this.transactions].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Description', 'Category'];
+    const rows = sorted.map((t, idx) => [
+      '',
+      t.timestamp.toISOString().split('T')[0],
+      t.type,
+      t.amount.toFixed(2),
+      t.description.replace(/"/g, '""'),
+      t.category || ''
+    ].map(field => `"${field}"`).join(','));
+    return [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
+  }
+  
+  exportMonthToCSV(year: number, month: number): string {
+    const filtered = this.transactions
+      .filter(t => t.timestamp.getFullYear() === year && t.timestamp.getMonth() === month)
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    if (filtered.length === 0) return '';
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Description', 'Category'];
+    const rows = filtered.map(t => [
+      '',
+      t.timestamp.toISOString().split('T')[0],
+      t.type,
+      t.amount.toFixed(2),
+      t.description.replace(/"/g, '""'),
+      t.category || ''
+    ].map(field => `"${field}"`).join(','));
+    return [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
+  }
 }
