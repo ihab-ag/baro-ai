@@ -638,5 +638,79 @@ export class PersistedExpenseTracker {
       return false;
     }
   }
+  
+  /**
+   * Clear ALL user data: transactions, budgets, and accounts
+   * Returns summary of what was deleted
+   */
+  async clearAllData(): Promise<{ transactions: number, budgets: number, accounts: number }> {
+    const txCount = this.transactions.length;
+    let budgetsCount = 0;
+    let accountsCount = 0;
+    
+    try {
+      // Get budgets count before deletion
+      const { data: budgetsData } = await supabase
+        .from('budgets')
+        .select('id')
+        .eq('user_id', this.userId);
+      budgetsCount = budgetsData?.length || 0;
+      
+      // Get accounts count before deletion
+      const { data: accountsData } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', this.userId);
+      accountsCount = accountsData?.length || 0;
+      
+      // Delete all transactions
+      const { error: txError } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', this.userId);
+      
+      if (txError) {
+        console.error('Error clearing transactions:', txError);
+      }
+      
+      // Delete all budgets
+      const { error: budgetError } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('user_id', this.userId);
+      
+      if (budgetError) {
+        console.error('Error clearing budgets:', budgetError);
+      }
+      
+      // Delete all accounts
+      const { error: accountError } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('user_id', this.userId);
+      
+      if (accountError) {
+        console.error('Error clearing accounts:', accountError);
+      }
+      
+      // Clear local state
+      this.transactions = [];
+      this.balance = 0;
+      this.currentAccount = 'cash';
+      
+      return {
+        transactions: txCount,
+        budgets: budgetsCount,
+        accounts: accountsCount
+      };
+    } catch (error) {
+      console.error('Failed to clear all data:', error);
+      return {
+        transactions: txCount,
+        budgets: budgetsCount,
+        accounts: accountsCount
+      };
+    }
+  }
 }
 

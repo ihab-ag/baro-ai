@@ -36,25 +36,72 @@ export class AccountingAgent {
     }
     
     // Store prompt template as string for now
-    this.prompt = `You are a helpful accounting assistant. Your job is to extract financial transaction information from user messages.
+    this.prompt = `You are a helpful accounting assistant for a finance bot. Your job is to either:
+1) extract financial transaction information, or
+2) infer a NON-DESTRUCTIVE bot command intent from natural language.
       
 Extract the following information from the message:
-1. Transaction type: "income" (money received) or "expense" (money spent)
-2. Amount: The numerical amount
+1. Transaction type: "income" (money received, got paid, salary, etc.) or "expense" (money spent, paid for, bought, etc.)
+2. Amount: The numerical amount (as a NUMBER, not string). Extract even if written as plain numbers like "20" (means $20 or 20)
 3. Description: What the transaction was for
 4. Category (optional): Such as groceries, salary, dining, etc.
 5. Account (optional): Which account this transaction belongs to (e.g., cash, bank, card)
 
+EXAMPLES:
+- "i got paid 20" → {"transaction":{"type":"income","amount":20,"description":"got paid"}}
+- "spent 50 on groceries" → {"transaction":{"type":"expense","amount":50,"description":"groceries","category":"groceries"}}
+- "paid $30 for lunch" → {"transaction":{"type":"expense","amount":30,"description":"lunch","category":"dining"}}
+
+ALLOWED COMMANDS (non-destructive only):
+- balance
+- history
+- months
+- month {index}
+- categories
+- catstats {index}
+- budgets
+- budget_status
+- budget_create {amount, category?}
+- accounts
+- account_add {name}
+- account_use {name}
+- export
+- export_month {index}
+
+For budget_create command, extract:
+- amount: the budget amount as a number
+- category: optional category name (if specified, otherwise null for overall budget)
+
+NEVER infer destructive commands like delete, clear, or override.
+
 Respond ONLY with valid JSON in this format:
 {
-  "type": "income" or "expense",
-  "amount": <number>,
-  "description": "<string>",
-  "category": "<optional category>",
-  "account": "<optional account>"
+  "intent": {
+    "type": "transaction" | "command" | "none",
+    "command"?: "balance" | "history" | "months" | "month" | "categories" | "catstats" | "budgets" | "budget_status" | "budget_create" | "accounts" | "account_add" | "account_use" | "export" | "export_month",
+    "args"?: { 
+      "index"?: number, 
+      "name"?: string,
+      "amount"?: number,
+      "category"?: string
+    }
+  },
+  "transaction": {
+    "type"?: "income" | "expense",
+    "amount"?: number,
+    "description"?: string,
+    "category"?: string,
+    "account"?: string
+  }
 }
 
-If you cannot extract a transaction from the message, respond with: {"type": "none"}`;
+EXAMPLES:
+- "show balance" → {"intent":{"type":"command","command":"balance"}}
+- "set budget $500 for groceries" → {"intent":{"type":"command","command":"budget_create","args":{"amount":500,"category":"groceries"}}}
+- "set budget $1000" → {"intent":{"type":"command","command":"budget_create","args":{"amount":1000}}}
+- "switch to bank account" → {"intent":{"type":"command","command":"account_use","args":{"name":"bank"}}}
+
+If you cannot infer anything, respond with: {"intent":{"type":"none"}}`;
   }
   
   async processMessage(message: string): Promise<any> {
@@ -75,7 +122,7 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
       // Try to parse as JSON
       const responseText = typeof response.content === 'string' ? response.content : String(response.content);
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      let data;
+      let data: any;
       
       if (jsonMatch) {
         data = JSON.parse(jsonMatch[0]);
@@ -83,9 +130,22 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
         data = { type: 'none' };
       }
       
-      // Process the transaction
-      const result = this.processTransaction(data, message);
-      
+      // Handle intent routing
+      const intent = data.intent?.type || 'transaction';
+      if (intent === 'command') {
+        // Return command to caller to handle safely
+        return {
+          success: true,
+          intent: {
+            type: 'command',
+            command: data.intent.command,
+            args: data.intent.args || {}
+          }
+        };
+      }
+      // Fallback to transaction
+      const txn = data.transaction || data; // support old format
+      const result = this.processTransaction(txn, message);
       return result;
       
     } catch (error) {
@@ -109,12 +169,15 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
     }
     
     const type = data.type;
-    const amount = data.amount;
+    // Parse amount - handle both string and number formats
+    const amountValue = typeof data.amount === 'string' ? parseFloat(data.amount.replace(/[^0-9.-]/g, '')) : Number(data.amount);
+    const amount = amountValue;
     const description = data.description || originalMessage;
     const category = data.category;
     const account = (data.account || this.tracker.getCurrentAccount?.() || 'cash');
     
-    if (!amount || amount <= 0) {
+    // Validate amount after parsing
+    if (!amount || isNaN(amount) || amount <= 0) {
       return {
         success: false,
         message: 'Invalid amount. Please provide a valid number.',
