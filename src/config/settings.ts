@@ -18,12 +18,6 @@ export class Settings {
   readonly groqApiKey: string;
   readonly groqModel: string;
   
-  // WhatsApp Configuration
-  readonly whatsappAccessToken: string;
-  readonly whatsappPhoneNumberId: string;
-  readonly whatsappVerifyToken: string;
-  readonly whatsappWebhookUrl: string;
-  
   // Telegram Configuration
   readonly telegramBotToken: string;
   
@@ -46,11 +40,6 @@ export class Settings {
     // Groq settings (FREE!)
     this.groqApiKey = process.env.GROQ_API_KEY || '';
     this.groqModel = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-    
-    this.whatsappAccessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
-    this.whatsappPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-    this.whatsappVerifyToken = process.env.WHATSAPP_VERIFY_TOKEN || '';
-    this.whatsappWebhookUrl = process.env.WHATSAPP_WEBHOOK_URL || '';
     
     // Telegram settings
     this.telegramBotToken = process.env.TELEGRAM_BOT_TOKEN || '';

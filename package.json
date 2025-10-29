@@ -1,24 +1,22 @@
 {
   "name": "baro-ai",
   "version": "1.0.0",
-  "description": "WhatsApp AI Accounting Agent with LangChain",
-  "main": "dist/index.js",
+  "description": "Telegram AI Accounting Bot with LangChain",
+  "main": "dist/telegram/bot.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/telegram/bot.js",
-    "dev": "tsx src/index.ts",
-    "test": "node dist/test.js",
-    "test:dev": "tsx src/test.ts",
-    "interactive": "tsx src/interactive.ts",
-    "chat": "tsx src/interactive.ts",
+    "dev": "tsx src/telegram/bot.ts",
     "telegram": "tsx src/telegram/bot.ts"
   },
   "keywords": [
     "langchain",
     "ai",
-    "whatsapp",
-    "accounting"
+    "telegram",
+    "bot",
+    "accounting",
+    "expense-tracker"
   ],
   "author": "",
   "license": "MIT",
