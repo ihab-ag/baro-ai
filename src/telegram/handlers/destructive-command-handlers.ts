@@ -211,7 +211,7 @@ export class ClearAllDataHandler {
 
   async handle(context: CommandContext): Promise<CommandResult> {
     try {
-      const { createClient } = require('@supabase/supabase-js');
+      const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(this.supabaseUrl, this.supabaseKey);
       
       // Count transactions
