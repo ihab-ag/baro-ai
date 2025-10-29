@@ -1,144 +1,366 @@
-# Baro AI - Telegram Accounting Bot
+# 🤖 Baro AI - Intelligent Telegram Accounting Bot
 
-An AI-powered Telegram bot that tracks your expenses and income through natural language messages.
+An AI-powered Telegram bot that tracks your expenses and income through natural language conversations. Built with TypeScript, LangChain, and Supabase following SOLID principles.
 
-## Features
+## ✨ Features
 
-- 📱 Telegram bot integration
-- 🤖 AI-powered parsing of transactions using LangChain (Groq/OpenAI)
-- 💰 Automatic balance tracking
-- 📊 Expense categorization
-- 📅 Monthly transaction history
-- 💾 Monthly budgets with tracking
-- 📈 Category statistics
-- 📋 CSV export (all transactions or by month)
-- 🗄️ Supabase persistence (optional, recommended)
+- 🤖 **AI-Powered Understanding**: Natural language processing using LangChain (Groq/OpenAI)
+- 💰 **Transaction Tracking**: Automatic income and expense recording
+- 📊 **Smart Categorization**: Automatic category detection from descriptions
+- 🏦 **Multi-Account Support**: Track transactions across multiple accounts (cash, bank, card, etc.)
+- 📅 **Monthly Budgets**: Set overall or category-specific budgets with status tracking
+- 📈 **Analytics**: Category statistics, monthly summaries, and spending insights
+- 💾 **Data Persistence**: Supabase-backed storage (recommended) or in-memory mode
+- 📋 **CSV Export**: Export transactions for analysis in spreadsheet applications
+- 🔒 **Data Safety**: Confirmation prompts for destructive operations
+- ⚡ **Clean Architecture**: SOLID principles, modular design, easy to extend
 
-## Prerequisites
+## 🚀 Quick Start
 
-- Node.js 18 or higher
-- Telegram bot token (get from [@BotFather](https://t.me/BotFather))
-- Groq API key (free at [console.groq.com](https://console.groq.com)) OR OpenAI API key
-- Supabase account (optional, for data persistence)
+### Prerequisites
 
-## Installation
+- **Node.js 18+** ([Download](https://nodejs.org/))
+- **Telegram Bot Token** - Get from [@BotFather](https://t.me/BotFather) on Telegram
+- **Groq API Key** (Free) - Get from [console.groq.com](https://console.groq.com)
+  - OR **OpenAI API Key** - Get from [platform.openai.com](https://platform.openai.com)
+- **Supabase Account** (Free) - For data persistence ([supabase.com](https://supabase.com))
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/baro-ai.git
-cd baro-ai
-```
+### Installation
 
-2. Install dependencies:
-```bash
-npm install
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/baro-ai.git
+   cd baro-ai
+   ```
 
-3. Create a `.env` file:
-```bash
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-GROQ_API_KEY=your_groq_api_key
-LLM_PROVIDER=groq
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-# Optional (for data persistence)
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+3. **Configure environment variables:**
+   
+   Create a `.env` file in the root directory:
+   ```env
+   # Required
+   TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+   GROQ_API_KEY=your_groq_api_key
+   LLM_PROVIDER=groq  # or 'openai'
+   
+   # Required for data persistence (recommended)
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
 
-## Usage
+4. **Set up Supabase database:**
+   
+   See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on creating tables.
 
-### Development Mode
+5. **Run the bot:**
+   ```bash
+   npm run build
+   npm start
+   ```
 
-Run the bot in development mode:
-```bash
-npm run dev
-```
+   Or in development mode:
+   ```bash
+   npm run dev
+   ```
 
-### Production Mode
+## 📱 Bot Functionalities
 
-Build and run:
-```bash
-npm run build
-npm start
-```
+### 💬 Adding Transactions (Natural Language)
 
-## Telegram Commands
+The bot understands natural language! Just describe your transactions:
 
-Once your bot is running, open Telegram and start chatting:
+**Income Examples:**
+- "I got paid $500"
+- "Received $200 salary"
+- "Made $150 freelancing"
 
-### Transaction Commands
-- `"I spent $50 on groceries"` - Add an expense
-- `"Received $200 salary"` - Add income
-- Natural language: `"Paid $30 for lunch"`
+**Expense Examples:**
+- "Spent $50 on groceries"
+- "Paid $30 for lunch"
+- "Bought gas for $40"
+- "Coffee cost $5"
 
-### View Commands
-- `balance` - Current balance
-- `history` - Last 10 transactions
-- `months` - List available months
-- `month 1` - View transactions for month #1
+The AI automatically extracts:
+- ✅ Transaction type (income/expense)
+- ✅ Amount
+- ✅ Description
+- ✅ Category (when clear from context)
+- ✅ Account (uses current account or defaults to "cash")
 
-### Category Commands
-- `categories` - List all categories
-- `catstats 1` - Category stats for month #1
+### 📊 View Commands (Natural Language)
 
-### Budget Commands
-- `budget $500` - Set $500 overall budget
-- `budget $500 groceries` - Set $500 budget for groceries
-- `budgets` - List all budgets
-- `budget status` - Check budget status
+All view commands work with natural language or explicit commands:
 
-### Delete Commands
-- `delete 12345` - Delete transaction by ID
+**Balance & History:**
+- "What's my balance?" or `balance`
+- "Show my transactions" or `history`
+- "Show last month's spending" or `month 1`
+
+**Months & Categories:**
+- "List all months" or `months`
+- "Show categories" or `categories`
+- "Category stats for January" or `catstats 1`
+
+### 🏦 Account Management
+
+**View Accounts:**
+- "Show my accounts" or `accounts`
+- Shows all accounts with current account highlighted
+
+**Create Account:**
+- "Create account bank" or `account add bank`
+- "Add account credit-card"
+
+**Switch Account:**
+- "Use bank account" or `account use bank`
+- "Switch to card"
+- All new transactions will use the selected account
+
+### 💰 Budget Management
+
+**Set Budget:**
+- "Set budget $500" (overall budget)
+- "Budget $300 for groceries" (category-specific)
+- "Create $1000 monthly budget"
+
+**View Budgets:**
+- "Show budgets" or `budgets`
+- Lists all budgets for current month
+
+**Budget Status:**
+- "How am I doing with budgets?" or `budget status`
+- Shows spending vs budget, remaining amount, and percentage used
+- Warnings when approaching or exceeding budget
+
+**Budget Override:**
+- If a budget already exists, the bot will ask for confirmation before replacing it
+
+### 📋 Export Data
+
+**Export All Transactions:**
+- "Export all data" or `export`
+- Downloads CSV file with all transactions
+
+**Export by Month:**
+- "Export January" or `export month 1`
+- Downloads CSV file for specific month
+
+CSV files include: ID, Date, Type, Amount, Description, Category, Account
+
+### 🗑️ Delete Operations (Require Explicit Commands)
+
+**For safety, delete operations require explicit commands:**
+
+**Delete Transaction:**
+- `delete 12345` - Delete transaction by ID (shown in history)
+
+**Clear Month:**
 - `clear month 1` - Clear all transactions for month #1
-- `clear` - Delete all transactions (with confirmation)
+- Requires confirmation: reply "yes" or "confirm"
 
-### Export Commands
-- `export` - Export all transactions as CSV
-- `export month 1` - Export transactions for month #1
+**Clear All Transactions:**
+- `clear` - Delete all transactions
+- Requires confirmation: reply "yes clear all"
 
-### Help
-- `help` - Show all commands
+**Clear All Data:**
+- `clear all data` - Delete EVERYTHING (transactions, budgets, accounts)
+- Requires explicit confirmation: reply "yes delete everything"
 
-## Database Setup
+## 🎯 Intended Actions & Use Cases
 
-For persistent storage, set up Supabase:
+### Personal Finance Tracking
+- Track daily expenses automatically
+- Monitor income sources
+- Analyze spending by category
+- Stay within monthly budgets
 
-1. Create account at [supabase.com](https://supabase.com) (free tier available)
-2. Run the SQL scripts from `SUPABASE_SETUP.md`
-3. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` to your `.env`
+### Budget Monitoring
+- Set realistic spending limits
+- Get alerts when approaching budget limits
+- Track category-specific budgets
+- Review budget performance monthly
 
-Without Supabase, data is stored in memory only (lost on restart).
+### Financial Analysis
+- Export data for detailed analysis
+- Review monthly summaries
+- Identify spending patterns
+- Category-wise breakdowns
 
-## Project Structure
+### Multi-Account Management
+- Separate cash, bank, and card transactions
+- Switch between accounts easily
+- Track balances across accounts
+
+## 📚 Command Reference
+
+| Command Type | Natural Language Example | Explicit Command |
+|-------------|-------------------------|------------------|
+| **Add Income** | "Got paid $500" | (AI understands automatically) |
+| **Add Expense** | "Spent $50 on groceries" | (AI understands automatically) |
+| **Balance** | "What's my balance?" | `balance` |
+| **History** | "Show transactions" | `history` |
+| **Months** | "List months" | `months` |
+| **Month View** | "Show January" | `month 1` |
+| **Categories** | "List categories" | `categories` |
+| **Category Stats** | "Category stats for month 1" | `catstats 1` |
+| **Accounts** | "Show accounts" | `accounts` |
+| **Add Account** | "Create account bank" | `account add bank` |
+| **Switch Account** | "Use bank account" | `account use bank` |
+| **Set Budget** | "Budget $500 for groceries" | (AI understands) |
+| **View Budgets** | "Show budgets" | `budgets` |
+| **Budget Status** | "Budget status" | `budget status` |
+| **Export** | "Export data" | `export` |
+| **Export Month** | "Export January" | `export month 1` |
+| **Delete** | — | `delete 12345` |
+| **Clear Month** | — | `clear month 1` |
+| **Clear All** | — | `clear` |
+| **Clear Everything** | — | `clear all data` |
+| **Help** | — | `help` |
+
+## 🏗️ Architecture
+
+The codebase follows SOLID principles with a clean, modular architecture:
 
 ```
-baro-ai/
-├── src/
-│   ├── telegram/
-│   │   └── bot.ts              # Telegram bot entry point
-│   ├── agent/
-│   │   ├── accounting-agent.ts # LangChain agent for parsing
-│   │   ├── expense-tracker.ts  # In-memory expense tracker
-│   │   └── persisted-tracker.ts # Supabase-backed tracker
-│   └── config/
-│       ├── settings.ts         # Configuration management
-│       └── database.ts         # Supabase client
-├── package.json
-├── tsconfig.json
-└── .env                        # Environment variables
+src/
+├── interfaces/          # Type definitions and interfaces
+│   ├── command.interface.ts
+│   └── expense-tracker.interface.ts
+├── agent/               # Core business logic
+│   ├── accounting-agent.ts     # AI-powered message processing
+│   ├── persisted-tracker.ts    # Data persistence layer
+│   └── expense-tracker.ts      # Transaction models
+├── telegram/
+│   ├── bot.ts                  # Main bot entry point
+│   ├── handlers/               # Command handlers (SOLID)
+│   │   ├── base-command-handler.ts
+│   │   ├── view-command-handlers.ts
+│   │   ├── budget-command-handlers.ts
+│   │   ├── account-command-handlers.ts
+│   │   ├── export-command-handlers.ts
+│   │   └── destructive-command-handlers.ts
+│   ├── router/                 # Command routing
+│   │   └── command-router.ts
+│   └── services/               # Services
+│       ├── confirmation-manager.service.ts
+│       └── message-formatter.service.ts
+└── config/             # Configuration
+    ├── settings.ts
+    └── database.ts
 ```
 
-## Deployment
+### Design Principles
 
-See `REPLIT_SETUP.md` for instructions on deploying to Replit (free).
+- **Single Responsibility**: Each handler handles one command type
+- **Open/Closed**: Easy to extend with new commands
+- **Dependency Inversion**: Depends on interfaces, not implementations
+- **Interface Segregation**: Focused, specific interfaces
+- **Separation of Concerns**: Handlers, services, and routing are separate
 
-## Learn More
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Yes | Get from [@BotFather](https://t.me/BotFather) |
+| `GROQ_API_KEY` | Yes* | Free Groq API key |
+| `OPENAI_API_KEY` | Yes* | Alternative to Groq |
+| `LLM_PROVIDER` | Yes | `groq` or `openai` |
+| `SUPABASE_URL` | Recommended | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | Recommended | Your Supabase anon key |
+
+*One of Groq or OpenAI API key is required
+
+### LLM Provider Options
+
+**Groq (Recommended - Free):**
+- Fast responses
+- Free tier available
+- Good for development and personal use
+
+**OpenAI:**
+- More powerful models
+- Paid (pay-as-you-go)
+- Better for production with high volume
+
+## 📖 Documentation
+
+- **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Database setup guide
+- **[TELEGRAM_SETUP.md](./TELEGRAM_SETUP.md)** - Bot creation guide
+- **[REPLIT_SETUP.md](./REPLIT_SETUP.md)** - Free hosting on Replit
+
+## 🚢 Deployment
+
+### Free Hosting Options
+
+1. **Replit** - See [REPLIT_SETUP.md](./REPLIT_SETUP.md)
+   - Free tier available
+   - Auto-deploy from GitHub
+   - Easy setup
+
+2. **Other Options:**
+   - Railway
+   - Render
+   - Fly.io
+   - Any Node.js hosting service
+
+### Production Considerations
+
+- Use Supabase for data persistence (not in-memory)
+- Set up environment variables securely
+- Monitor bot uptime
+- Consider using a process manager like PM2
+
+## 🤝 Contributing
+
+Contributions are welcome! The codebase is designed to be easily extensible:
+
+1. Add new commands by creating handlers in `src/telegram/handlers/`
+2. Register handlers in `src/telegram/bot.ts`
+3. Follow SOLID principles
+4. Add tests for new functionality
+
+## 📝 License
+
+MIT License - feel free to use and modify for your needs.
+
+## 🔗 Links
 
 - [LangChain.js Documentation](https://js.langchain.com/)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
 - [Groq API](https://console.groq.com)
 - [Supabase Documentation](https://supabase.com/docs)
 
-## License
+## 💡 Tips
 
-MIT
+1. **Use Natural Language**: The bot understands conversational commands better than explicit syntax
+2. **Set Budgets Early**: Set monthly budgets at the start of each month
+3. **Categorize Consistently**: The AI learns from your categorization patterns
+4. **Export Regularly**: Export data monthly for backup and analysis
+5. **Multiple Accounts**: Use different accounts for better financial organization
+
+## ❓ FAQ
+
+**Q: Is my data safe?**  
+A: Yes! Data is stored in your Supabase database with Row Level Security. Only you can access your data.
+
+**Q: Can I use it without Supabase?**  
+A: Yes, but data will be lost when the bot restarts. Supabase is recommended.
+
+**Q: Is Groq API really free?**  
+A: Yes, Groq offers a free tier that's sufficient for personal use.
+
+**Q: Can I add custom categories?**  
+A: Categories are automatically created from your transaction descriptions. The bot learns from your usage.
+
+**Q: How do I backup my data?**  
+A: Use the export feature regularly, or rely on Supabase's built-in backups.
+
+---
+
+**Made with ❤️ for better personal finance management**
