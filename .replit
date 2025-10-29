@@ -1,0 +1,17 @@
+language = "nodejs"
+run = "npm run build && npm start"
+entrypoint = "src/telegram/bot.ts"
+
+[env]
+NODE_ENV = "production"
+
+[deploy]
+run = ["npm run build", "npm start"]
+
+[packager]
+language = "nodejs"
+ignoredPackages = ["unit_tests"]
+
+[gitHubImport]
+requiredFiles = [".replit", ".gitignore", "package.json"]
+
