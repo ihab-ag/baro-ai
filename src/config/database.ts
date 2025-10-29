@@ -24,6 +24,7 @@ export interface TransactionRow {
   description: string;
   type: 'income' | 'expense';
   category?: string;
+  account?: string; // account name, defaults to 'cash'
   timestamp: string;
   created_at?: string;
 }
@@ -36,6 +37,13 @@ export interface BudgetRow {
   category?: string | null; // null for overall budget, or category name
   amount: number;
   type: 'income' | 'expense';
+  created_at?: string;
+}
+
+export interface AccountRow {
+  id?: number;
+  user_id: string;
+  name: string; // e.g., 'cash', 'bank', 'card'
   created_at?: string;
 }
 

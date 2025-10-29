@@ -7,6 +7,7 @@ export interface TransactionData {
   description: string;
   type: 'income' | 'expense';
   category?: string;
+  account?: string;
   timestamp: string;
 }
 
@@ -15,6 +16,7 @@ export class Transaction {
   description: string;
   type: 'income' | 'expense';
   category?: string;
+  account?: string;
   timestamp: Date;
   
   constructor(
@@ -22,12 +24,14 @@ export class Transaction {
     description: string,
     type: 'income' | 'expense',
     category?: string,
+    account?: string,
     timestamp?: Date
   ) {
     this.amount = amount;
     this.description = description;
     this.type = type;
     this.category = category;
+    this.account = account;
     this.timestamp = timestamp || new Date();
   }
   
@@ -37,6 +41,7 @@ export class Transaction {
       description: this.description,
       type: this.type,
       category: this.category,
+      account: this.account,
       timestamp: this.timestamp.toISOString()
     };
   }
@@ -47,6 +52,7 @@ export class Transaction {
       data.description,
       data.type,
       data.category,
+      data.account,
       new Date(data.timestamp)
     );
   }

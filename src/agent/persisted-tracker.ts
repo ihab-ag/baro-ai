@@ -3,7 +3,7 @@
  */
 
 import { Transaction, type TransactionData } from './expense-tracker.js';
-import { supabase, type TransactionRow, type BudgetRow } from '../config/database.js';
+import { supabase, type TransactionRow, type BudgetRow, type AccountRow } from '../config/database.js';
 
 interface TransactionWithId {
   transaction: Transaction;
@@ -14,6 +14,9 @@ export class PersistedExpenseTracker {
   private userId: string;
   private balance: number = 0;
   private transactions: TransactionWithId[] = [];
+  private isLoaded: boolean = false;
+  private loadingPromise?: Promise<void>;
+  private currentAccount: string = 'cash';
   
   constructor(userId: string) {
     this.userId = userId;
@@ -26,7 +29,10 @@ export class PersistedExpenseTracker {
    * Load transactions from Supabase on initialization
    */
   async loadTransactions(): Promise<void> {
-    try {
+    // De-duplicate concurrent loads
+    if (this.loadingPromise) return this.loadingPromise;
+    this.loadingPromise = (async () => {
+      try {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -46,6 +52,7 @@ export class PersistedExpenseTracker {
           row.description,
           row.type as 'income' | 'expense',
           row.category || undefined,
+          row.account || undefined,
           new Date(row.timestamp)
         )
       }));
@@ -57,13 +64,87 @@ export class PersistedExpenseTracker {
       }, 0);
       
       console.log(`✅ Loaded ${this.transactions.length} transactions. Balance: $${this.balance.toFixed(2)}`);
+      this.isLoaded = true;
+      // Ensure default account exists
+      await this.ensureAccountExists('cash');
     } catch (error) {
       console.error('Failed to load transactions from Supabase:', error);
+    } finally {
+      this.loadingPromise = undefined;
+    }
+    })();
+    return this.loadingPromise;
+  }
+
+  async ensureLoaded(): Promise<void> {
+    if (this.isLoaded) return;
+    await this.loadTransactions();
+  }
+
+  getCurrentAccount(): string {
+    return this.currentAccount || 'cash';
+  }
+
+  async setCurrentAccount(name: string): Promise<void> {
+    const account = name.trim().toLowerCase();
+    await this.ensureAccountExists(account);
+    this.currentAccount = account;
+  }
+
+  async ensureAccountExists(name: string): Promise<void> {
+    const account = name.trim().toLowerCase();
+    try {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', this.userId)
+        .eq('name', account)
+        .maybeSingle();
+      if (error) {
+        console.warn('accounts select error (non-fatal):', error);
+      }
+      if (!data) {
+        const insertRow: AccountRow = { user_id: this.userId, name: account };
+        const { error: insErr } = await supabase.from('accounts').insert([insertRow]);
+        if (insErr) {
+          console.warn('accounts insert error (non-fatal):', insErr);
+        }
+      }
+    } catch (e) {
+      console.warn('ensureAccountExists failed (non-fatal):', e);
+    }
+  }
+
+  async getAccounts(): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('name')
+        .eq('user_id', this.userId)
+        .order('name', { ascending: true });
+      if (error) {
+        console.warn('accounts fetch error:', error);
+        // fallback to accounts from transactions
+        const set = new Set<string>();
+        this.transactions.forEach(it => set.add(it.transaction.account || 'cash'));
+        return Array.from(set).sort();
+      }
+      const names = (data || []).map(r => r.name);
+      if (!names.includes('cash')) names.unshift('cash');
+      return Array.from(new Set(names));
+    } catch {
+      const set = new Set<string>();
+      this.transactions.forEach(it => set.add(it.transaction.account || 'cash'));
+      const list = Array.from(set).sort();
+      if (!list.includes('cash')) list.unshift('cash');
+      return list;
     }
   }
   
-  async addIncome(amount: number, description: string, category?: string): Promise<TransactionWithId> {
-    const transaction = new Transaction(amount, description, 'income', category);
+  async addIncome(amount: number, description: string, category?: string, account?: string): Promise<TransactionWithId> {
+    const acct = (account || this.currentAccount || 'cash').toLowerCase();
+    await this.ensureAccountExists(acct);
+    const transaction = new Transaction(amount, description, 'income', category, acct);
     this.balance += amount;
     
     // Save to Supabase and get ID
@@ -75,8 +156,10 @@ export class PersistedExpenseTracker {
     return item;
   }
   
-  async addExpense(amount: number, description: string, category?: string): Promise<TransactionWithId> {
-    const transaction = new Transaction(amount, description, 'expense', category);
+  async addExpense(amount: number, description: string, category?: string, account?: string): Promise<TransactionWithId> {
+    const acct = (account || this.currentAccount || 'cash').toLowerCase();
+    await this.ensureAccountExists(acct);
+    const transaction = new Transaction(amount, description, 'expense', category, acct);
     this.balance -= amount;
     
     // Save to Supabase and get ID
@@ -96,6 +179,7 @@ export class PersistedExpenseTracker {
         description: transaction.description,
         type: transaction.type,
         category: transaction.category,
+        account: transaction.account || 'cash',
         timestamp: transaction.timestamp.toISOString()
       };
       
@@ -332,7 +416,7 @@ export class PersistedExpenseTracker {
       .sort((a, b) => a.transaction.timestamp.getTime() - b.transaction.timestamp.getTime());
     
     // CSV header
-    const headers = ['ID', 'Date', 'Type', 'Amount', 'Description', 'Category'];
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Description', 'Category', 'Account'];
     
     // CSV rows
     const rows = sortedTransactions.map(item => {
@@ -343,7 +427,8 @@ export class PersistedExpenseTracker {
         t.type,
         t.amount.toFixed(2),
         t.description.replace(/"/g, '""'), // Escape double quotes in description
-        t.category || ''
+        t.category || '',
+        t.account || 'cash'
       ].map(field => `"${field}"`).join(',');
     });
     

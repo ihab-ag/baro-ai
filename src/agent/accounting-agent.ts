@@ -5,17 +5,16 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatGroq } from '@langchain/groq';
 import { Settings } from '../config/settings.js';
-import { ExpenseTracker, Transaction } from './expense-tracker.js';
 
 export class AccountingAgent {
   private llm: ChatOpenAI | ChatGroq;
   private prompt: any;
-  public tracker: ExpenseTracker;
+  public tracker: any;
   private settings: Settings;
   
-  constructor(settings: Settings) {
+  constructor(settings: Settings, tracker: any) {
     this.settings = settings;
-    this.tracker = new ExpenseTracker();
+    this.tracker = tracker;
     
     // Initialize LLM based on provider
     if (settings.llmProvider === 'groq') {
@@ -44,13 +43,15 @@ Extract the following information from the message:
 2. Amount: The numerical amount
 3. Description: What the transaction was for
 4. Category (optional): Such as groceries, salary, dining, etc.
+5. Account (optional): Which account this transaction belongs to (e.g., cash, bank, card)
 
 Respond ONLY with valid JSON in this format:
 {
   "type": "income" or "expense",
   "amount": <number>,
   "description": "<string>",
-  "category": "<optional category>"
+  "category": "<optional category>",
+  "account": "<optional account>"
 }
 
 If you cannot extract a transaction from the message, respond with: {"type": "none"}`;
@@ -111,6 +112,7 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
     const amount = data.amount;
     const description = data.description || originalMessage;
     const category = data.category;
+    const account = (data.account || this.tracker.getCurrentAccount?.() || 'cash');
     
     if (!amount || amount <= 0) {
       return {
@@ -121,14 +123,13 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
     }
     
     // Add transaction
-    let transaction: Transaction;
     let action: string;
     
     if (type === 'income') {
-      transaction = this.tracker.addIncome(amount, description, category);
+      this.tracker.addIncome(amount, description, category, account);
       action = 'Added income';
     } else if (type === 'expense') {
-      transaction = this.tracker.addExpense(amount, description, category);
+      this.tracker.addExpense(amount, description, category, account);
       action = 'Added expense';
     } else {
       return {
@@ -145,7 +146,7 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
       description,
       category,
       balance: this.tracker.getBalance(),
-      message: `${action} of $${amount.toFixed(2)} for ${description}. Current balance: $${this.tracker.getBalance().toFixed(2)}`
+      message: `${action} of $${amount.toFixed(2)} for ${description} in ${account}. Current balance: $${this.tracker.getBalance().toFixed(2)}`
     };
   }
   
@@ -154,7 +155,7 @@ If you cannot extract a transaction from the message, respond with: {"type": "no
     
     return {
       balance: this.tracker.getBalance(),
-      recentTransactions: recentTransactions.map(t => ({
+      recentTransactions: recentTransactions.map((t: any) => ({
         type: t.type,
         amount: t.amount,
         description: t.description,

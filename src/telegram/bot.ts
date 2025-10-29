@@ -40,28 +40,18 @@ async function main() {
   
   function getOrCreateAgent(userId: string): AccountingAgent {
     if (!userAgents.has(userId)) {
-      // Try using persisted tracker if Supabase is configured
-      const useSupabase = settings.supabaseUrl && settings.supabaseKey;
-      
-      if (useSupabase) {
-        const tracker = new PersistedExpenseTracker(userId);
-        const agent = new AccountingAgent(settings);
-        agent.tracker = tracker as any;
-        userAgents.set(userId, agent);
-        
-        // Load user's transactions
-        tracker.loadTransactions().catch(err => 
-          console.error(`Failed to load transactions for user ${userId}:`, err)
-        );
-        
-        return agent;
+      if (!settings.supabaseUrl || !settings.supabaseKey) {
+        throw new Error('Supabase is required. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your environment.');
       }
+      const tracker = new PersistedExpenseTracker(userId);
+      const agent = new AccountingAgent(settings, tracker as any);
+      userAgents.set(userId, agent);
+      
+      // Load user's transactions
+      tracker.loadTransactions().catch(err => 
+        console.error(`Failed to load transactions for user ${userId}:`, err)
+      );
     }
-    
-    if (!userAgents.has(userId)) {
-      userAgents.set(userId, new AccountingAgent(settings));
-    }
-    
     return userAgents.get(userId)!;
   }
 
@@ -93,6 +83,8 @@ async function main() {
     
     // Get or create agent for this user
     const agent = getOrCreateAgent(userId);
+    // Ensure user's data is loaded before handling any command
+    await (agent.tracker as any).ensureLoaded?.();
     
     // Skip /start, hi, hello (exact matches only)
     const textLower = text.toLowerCase().trim();
@@ -113,6 +105,10 @@ async function main() {
         `📂 *Category Commands:*\n` +
         `• \`categories\` - List all your categories\n` +
         `• \`catstats 1\` - Category stats for month #1\n\n` +
+        `🏦 *Account Commands:*\n` +
+        `• \`accounts\` - List your accounts (current marked)\n` +
+        `• \`account add bank\` - Create an account named "bank"\n` +
+        `• \`account use bank\` - Switch current account to "bank"\n\n` +
         `💰 *Budget Commands:*\n` +
         `• \`budget $500\` - Set $500 overall budget\n` +
         `• \`budget $500 groceries\` - Set $500 budget for groceries\n` +
@@ -223,6 +219,41 @@ async function main() {
       } else {
         const lines = categories.map((cat: string, i: number) => `${i + 1}. ${cat}`);
         await bot.sendMessage(chatId, `📂 Your categories:\n\n${lines.join('\n')}\n\n💡 Use "catstats MONTH" to see stats for each category`);
+      }
+      return;
+    }
+
+    // Accounts list command
+    if (/^accounts$/i.test(text)) {
+      const accounts = await (agent.tracker as any).getAccounts?.() || [];
+      const current = (agent.tracker as any).getCurrentAccount?.() || 'cash';
+      if (accounts.length === 0) {
+        await bot.sendMessage(chatId, '🏦 No accounts found. Default is "cash". Use `account add NAME` to create one.');
+      } else {
+        const lines = accounts.map((name: string, i: number) => name === current ? `${i + 1}. ${name} (current)` : `${i + 1}. ${name}`);
+        await bot.sendMessage(chatId, `🏦 Your accounts:\n\n${lines.join('\n')}\n\n💡 Use \`account use NAME\` to switch`);
+      }
+      return;
+    }
+
+    // Account add command
+    if (/^account\s+add\s+.+$/i.test(text)) {
+      const match = text.match(/^account\s+add\s+(.+)$/i);
+      if (match) {
+        const name = match[1].trim();
+        await (agent.tracker as any).ensureAccountExists?.(name);
+        await bot.sendMessage(chatId, `✅ Account "${name}" created.`);
+      }
+      return;
+    }
+
+    // Account use command
+    if (/^account\s+use\s+.+$/i.test(text)) {
+      const match = text.match(/^account\s+use\s+(.+)$/i);
+      if (match) {
+        const name = match[1].trim();
+        await (agent.tracker as any).setCurrentAccount?.(name);
+        await bot.sendMessage(chatId, `✅ Current account set to "${name}".`);
       }
       return;
     }

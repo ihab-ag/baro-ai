@@ -28,12 +28,16 @@ CREATE TABLE transactions (
   description TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
   category TEXT,
+  account TEXT NOT NULL DEFAULT 'cash',
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_transactions_user_timestamp ON transactions(user_id, timestamp DESC);
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+
+-- Optional migration if your table already exists (run once):
+-- ALTER TABLE transactions ADD COLUMN IF NOT EXISTS account TEXT NOT NULL DEFAULT 'cash';
 ```
 
 4. Click **"RUN"** (bottom right)
@@ -58,6 +62,21 @@ CREATE TABLE budgets (
 );
 
 CREATE INDEX idx_budgets_user_month ON budgets(user_id, year, month);
+```
+## Step 2.6: Create Accounts Table (Optional but Recommended)
+
+This stores the list of accounts per user (e.g., cash, bank, card):
+
+```sql
+CREATE TABLE accounts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, name)
+);
+
+CREATE INDEX idx_accounts_user ON accounts(user_id);
 ```
 
 3. Click **"RUN"**
@@ -111,6 +130,19 @@ FOR INSERT WITH CHECK (true);
 
 -- Allow users to delete their own budgets
 CREATE POLICY "Users can delete their own budgets" ON budgets
+FOR DELETE USING (true);
+
+-- Enable RLS on accounts (if you created the table)
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to view/insert/delete their own accounts
+CREATE POLICY "Users can view their own accounts" ON accounts
+FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their own accounts" ON accounts
+FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can delete their own accounts" ON accounts
 FOR DELETE USING (true);
 ```
 
