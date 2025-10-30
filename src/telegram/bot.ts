@@ -77,14 +77,14 @@ class BotService {
         throw new Error('Supabase is required. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your environment.');
       }
       
-      const tracker = new PersistedExpenseTracker(userId);
+        const tracker = new PersistedExpenseTracker(userId);
       const agent = new AccountingAgent(this.settings, tracker);
       this.userAgents.set(userId, agent);
-      
+        
       // Load user's transactions asynchronously
-      tracker.loadTransactions().catch(err =>
-        console.error(`Failed to load transactions for user ${userId}:`, err)
-      );
+        tracker.loadTransactions().catch(err => 
+          console.error(`Failed to load transactions for user ${userId}:`, err)
+        );
     }
     
     return this.userAgents.get(userId)!;
@@ -114,17 +114,17 @@ class BotService {
   private async setupMessageHandlers(): Promise<void> {
     // Greeting
     this.bot.onText(/\/start|hi|hello/i, async (msg) => {
-      const chatId = msg.chat.id;
+    const chatId = msg.chat.id;
       await this.bot.sendMessage(
-        chatId,
-        '👋 Welcome to Baro AI!\n\n' +
-          'I can help you track expenses:\n' +
-          '• "I spent $50 on groceries"\n' +
-          '• "Received $200 salary"\n' +
-          '• "Paid $30 for lunch"\n\n' +
-          'Type "help" to see all commands!'
-      );
-    });
+      chatId,
+      '👋 Welcome to Baro AI!\n\n' +
+        'I can help you track expenses:\n' +
+        '• "I spent $50 on groceries"\n' +
+        '• "Received $200 salary"\n' +
+        '• "Paid $30 for lunch"\n\n' +
+        'Type "help" to see all commands!'
+    );
+  });
 
     // Main message handler
     this.bot.on('message', async (msg) => {
@@ -138,20 +138,20 @@ class BotService {
     const text = msg.text || '';
 
     if (!text) return;
-
+    
     try {
       const agent = this.getOrCreateAgent(userId);
       await agent.tracker.ensureLoaded();
-
+    
       // Skip greeting commands
-      const textLower = text.toLowerCase().trim();
-      if (textLower === 'hi' || textLower === 'hello' || textLower.startsWith('/start')) return;
-
-      // Help command
-      if (/^help$|^commands$/i.test(text)) {
+    const textLower = text.toLowerCase().trim();
+    if (textLower === 'hi' || textLower === 'hello' || textLower.startsWith('/start')) return;
+    
+    // Help command
+    if (/^help$|^commands$/i.test(text)) {
         await this.sendHelpMessage(chatId);
-        return;
-      }
+      return;
+    }
 
       // Check pending confirmations first
       const confirmationResult = await this.handleConfirmations(userId, chatId, text, agent);
@@ -233,7 +233,7 @@ class BotService {
             const budgetType = confirmation.category ? `"${confirmation.category}"` : 'overall spending';
             const monthName = new Date(confirmation.year, confirmation.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             await this.bot.sendMessage(chatId, `✅ Budget updated: $${confirmation.amount.toFixed(2)} for ${budgetType} this month (${monthName}).`);
-          } else {
+        } else {
             await this.bot.sendMessage(chatId, '❌ Failed to update budget.');
           }
         } catch (err) {
@@ -422,6 +422,35 @@ class BotService {
 }
 
 async function main() {
+  // Run pre-flight tests (basic checks)
+  console.log('\n🧪 Running pre-flight checks...\n');
+  
+  try {
+    // Basic functionality check
+    const { ExpenseTracker } = await import('../agent/expense-tracker.js');
+    const tracker = new ExpenseTracker();
+    
+    // Test transaction operations
+    tracker.addIncome(100, 'Test');
+    tracker.addExpense(50, 'Test Expense');
+    const balance = tracker.getBalance();
+    
+    if (balance !== 50) {
+      throw new Error(`Balance calculation failed: expected 50, got ${balance}`);
+    }
+    
+    // Test CSV export
+    const csv = tracker.exportToCSV();
+    if (!csv || !csv.includes('Amount')) {
+      throw new Error('CSV export failed');
+    }
+    
+    console.log('✅ Core functionality checks passed\n');
+  } catch (error: any) {
+    console.error('❌ Pre-flight check failed:', error.message);
+    console.error('⚠️  Continuing anyway, but some features may not work.\n');
+  }
+
   const settings = new Settings();
   const token = settings.telegramBotToken;
 

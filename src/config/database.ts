@@ -2,6 +2,8 @@
  * Supabase database configuration and client setup.
  */
 
+// Ensure .env is loaded even if this module is imported before Settings
+import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -11,11 +13,14 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️  Supabase credentials not set in .env');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false
-  }
-});
+// Only create client if credentials are provided
+export const supabase = (supabaseUrl && supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false
+      }
+    })
+  : null as any; // Type assertion for tests - actual usage will check for null
 
 export interface TransactionRow {
   id?: number;

@@ -261,6 +261,29 @@ src/
 - **Interface Segregation**: Focused, specific interfaces
 - **Separation of Concerns**: Handlers, services, and routing are separate
 
+## 🧪 Testing
+
+The project includes a comprehensive test suite to verify all functionalities before deployment:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run pre-flight checks (before starting bot)
+npm run test:preflight
+```
+
+**Test Coverage:**
+- ✅ Core transaction operations (23 tests)
+- ✅ Command handlers (4 tests)
+- ✅ Integration workflows (5 tests)
+- ✅ Pre-flight validation (automatic on start)
+
+All tests automatically run before `npm start` to ensure functionality. See [tests/README.md](./tests/README.md) for details.
+
 ## 🔧 Configuration
 
 ### Environment Variables

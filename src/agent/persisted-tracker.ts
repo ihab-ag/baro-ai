@@ -45,10 +45,10 @@ export class PersistedExpenseTracker {
         return;
       }
       
-      this.transactions = (data || []).map(row => ({
+      this.transactions = (data || []).map((row: TransactionRow) => ({
         id: row.id!,
         transaction: new Transaction(
-          parseFloat(row.amount),
+          Number(row.amount),
           row.description,
           row.type as 'income' | 'expense',
           row.category || undefined,
@@ -129,7 +129,7 @@ export class PersistedExpenseTracker {
         this.transactions.forEach(it => set.add(it.transaction.account || 'cash'));
         return Array.from(set).sort();
       }
-      const names = (data || []).map(r => r.name);
+      const names = (data || []).map((r: AccountRow) => r.name);
       if (!names.includes('cash')) names.unshift('cash');
       return Array.from(new Set(names));
     } catch {
